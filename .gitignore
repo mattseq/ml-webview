@@ -1,0 +1,4 @@
+data/
+core
+__pycache__/
+*.log

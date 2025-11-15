@@ -1,13 +1,17 @@
 from flask import Flask, send_from_directory # type: ignore
-from flask_socketio import SocketIO # type: ignore
+from flask_socketio import SocketIO, emit # type: ignore
 import threading
+import os
 import time
 import torch # type: ignore
 import torch.nn as nn # type: ignore
 import torch.optim as optim # type: ignore
 from mnistSimple import train_model
 
-app = Flask(__name__, static_folder='/frontend')
+BASE_DIR = os.path.dirname(__file__)
+FRONTEND_DIST = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend', 'dist'))
+
+app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 training_thread = None
@@ -25,7 +29,7 @@ def handle_connect():
     print('Client connected')
     
     if training_history:
-        socketio.emit('history', training_history)
+        emit('history', training_history)
 
 @socketio.on('disconnect')
 def handle_disconnect():

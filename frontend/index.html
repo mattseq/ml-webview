@@ -1,60 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <title>ML Webview</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-</head>
-<body>
-    <h1>ML Training Dashboard</h1>
-    <button onclick="startTraining()">Start Training</button>
-    <canvas id="lossChart" width="400" height="200"></canvas>
-<script>
-const socket = io(window.location.origin);
-
-let lossChartCtx = document.getElementById('lossChart').getContext('2d');
-
-let lossChart = new Chart(lossChartCtx, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: 'red', fill: false }] },
-    options: {
-        responsive: true,
-        scales: {
-            x: {
-                title: { display: true, text: 'Epoch' },
-                beginAtZero: true
-            },
-            y: {
-                title: { display: true, text: 'Loss' },
-                beginAtZero: true
-            }
-        }
-    }
-});
-
-socket.on('history', (history) => {
-    console.log("History received:", history);
-
-    history.forEach(data => {
-        lossChart.data.labels.push(data.epoch);
-        lossChart.data.datasets[0].data.push(data.loss);
-    });
-
-    lossChart.update();
-});
-
-socket.on('update', data => {
-    console.log("Update received:", data);
-    lossChart.data.labels.push(data.epoch);
-    lossChart.data.datasets[0].data.push(data.loss);
-    lossChart.update();
-});
-
-function startTraining() {
-    fetch('/start');
-}
-</script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>

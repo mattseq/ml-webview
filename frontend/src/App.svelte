@@ -7,6 +7,8 @@
   let canvasBind;
   let socket;
 
+  let trainingInProgress = false;
+
   onMount(() => {
     if (!canvasBind) return;
     
@@ -30,6 +32,11 @@
     });
 
     socket = io(window.location.origin);
+
+    socket.on('status', (status) => {
+      console.log("Status received:", status);
+      trainingInProgress = status.training
+    })
 
     socket.on('history', (history) => {
       console.log("History received:", history);
@@ -61,12 +68,24 @@
 
   function startTraining() {
     fetch('/start');
+    trainingInProgress = true;
+  }
+  function stopTraining() {
+    fetch('/stop');
+    trainingInProgress = false;
   }
 </script>
 
 <main>
   <canvas bind:this={canvasBind}></canvas>
-  <button on:click={startTraining} >Start Training</button>
+
+  {#if trainingInProgress}
+    <p>Training in progress...</p>
+    <button onclick={stopTraining} >Stop Training</button>
+  {:else}
+    <p>Training not started.</p>
+    <button onclick={startTraining} >Start Training</button>
+  {/if}
 </main>
 
 <style>

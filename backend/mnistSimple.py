@@ -1,9 +1,10 @@
 # model.py
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchvision import datasets, transforms
+import numpy as np # type: ignore
+import torch # type: ignore
+import torch.nn as nn # type: ignore
+import torch.optim as optim # type: ignore
+from torchvision import datasets, transforms # type: ignore
+from interface import SocketCallback
 
 
 # Helper: convert MNIST labels to indices (not one-hot) for PyTorch
@@ -17,7 +18,7 @@ def preprocess_data():
     return (train_images, train_labels)
 
 # Main training function
-def train_model(update_callback=None):
+def train_model(callback=None):
     train_images, train_labels = preprocess_data()
 
     model = nn.Sequential(
@@ -33,6 +34,10 @@ def train_model(update_callback=None):
     num_samples = train_images.shape[0]
 
     for epoch in range(1, epochs + 1):
+        if callback.stop_event and callback.stop_event.is_set():
+            print("Training stopped.")
+            return
+
         # Shuffle at start of each epoch
         indices = torch.randperm(num_samples)
         train_images_shuffled = train_images[indices]
@@ -54,13 +59,20 @@ def train_model(update_callback=None):
         epoch_loss /= (num_samples // batch_size)
 
         # update callback for socket in app.py
-        if update_callback:
-            update_callback({'epoch': epoch, 'loss': epoch_loss})
+        if callback:
+            callback.update({'epoch': epoch, 'loss': epoch_loss})
+
+    if callback:
+        callback.finished()
 
     return model
 
-if __name__ == "__main__":
-    def print_update(data):
-        print(f"Epoch {data['epoch']}, Loss: {data['loss']:.4f}")
+class PrintUpdateCallback:
+        def update(self, data):
+            print(f"Epoch {data['epoch']}, Loss: {data['loss']:.4f}")
+        def finished(self):
+            print("Training finished.")
 
-    train_model(update_callback=print_update)
+if __name__ == "__main__":
+    callback = PrintUpdateCallback()
+    train_model(callback=callback)

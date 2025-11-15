@@ -7,6 +7,7 @@ import torch # type: ignore
 import torch.nn as nn # type: ignore
 import torch.optim as optim # type: ignore
 from mnistSimple import train_model
+from interface import SocketCallback
 
 BASE_DIR = os.path.dirname(__file__)
 FRONTEND_DIST = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend', 'dist'))
@@ -17,12 +18,11 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 training_thread = None
 training_history = []
 
+stop_event = threading.Event()
+
 def start_training_thread():
-    def callback(data):
-        training_history.append(data)
-        socketio.emit('update', data)
-    
-    train_model(update_callback=callback)
+    callback = SocketCallback(socketio, training_history, stop_event)
+    train_model(callback=callback)
 
 @socketio.on('connect')
 def handle_connect():
@@ -30,6 +30,12 @@ def handle_connect():
     
     if training_history:
         emit('history', training_history)
+
+    # send current status
+    if training_thread and training_thread.is_alive():
+        emit('status', {'training': True})
+    else:
+        emit('status', {'training': False})
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -41,13 +47,24 @@ def index():
 
 @app.route('/start')
 def start_training():
-    global training_thread
+    global training_thread, stop_event
     if training_thread is None or not training_thread.is_alive():
+        training_history.clear()
+        stop_event.clear()
         training_thread = threading.Thread(target=start_training_thread)
         training_thread.start()
         return "Training started!"
     else:
         return "Training already in progress!"
+
+@app.route('/stop')
+def stop_training():
+    global stop_event
+    if training_thread and training_thread.is_alive():
+        stop_event.set()
+        return "Training stopped!"
+    else:
+        return "No training in progress!"
 
 # --- Run ---
 if __name__ == '__main__':

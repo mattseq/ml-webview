@@ -3,3 +3,5 @@ flask-socketio
 torch
 numpy
 torchvision
+PyJWT
+os

@@ -1,11 +1,10 @@
-from flask import Flask, send_from_directory # type: ignore
+from flask import Flask, send_from_directory, jsonify, request, make_response # type: ignore
 from flask_socketio import SocketIO, emit # type: ignore
 import threading
 import os
 import time
-import torch # type: ignore
-import torch.nn as nn # type: ignore
-import torch.optim as optim # type: ignore
+import datetime
+import jwt # type: ignore
 from mnistSimple import train_model
 from interface import SocketCallback
 
@@ -20,9 +19,23 @@ training_history = []
 
 stop_event = threading.Event()
 
+SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
+
 def start_training_thread():
     callback = SocketCallback(socketio, training_history, stop_event)
     train_model(callback=callback)
+
+def check_auth():
+    token = request.cookies.get('jwt')
+    if not token:
+        return False
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return payload.get('user') == 'admin'
+    except jwt.ExpiredSignatureError:
+        return False
+    except jwt.InvalidTokenError:
+        return False
 
 @socketio.on('connect')
 def handle_connect():
@@ -45,8 +58,11 @@ def handle_disconnect():
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/start')
+@app.route('/api/start', methods=['POST'])
 def start_training():
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
     global training_thread, stop_event
     if training_thread is None or not training_thread.is_alive():
         training_history.clear()
@@ -57,21 +73,51 @@ def start_training():
     else:
         return "Training already in progress!"
 
-@app.route('/stop')
+@app.route('/api/stop', methods=['POST'])
 def stop_training():
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
     global stop_event
     if training_thread and training_thread.is_alive():
         stop_event.set()
+        training_thread.join(timeout=1)
         return "Training stopped!"
     else:
         return "No training in progress!"
 
-@app.route('/status')
+@app.route('/api/status', methods=['GET'])
 def training_status():
-    if training_thread and training_thread.is_alive():
-        return {'training': True}
-    else:
-        return {'training': False}
+    if not check_auth():
+        return jsonify({'loggedIn': False, 'message': 'Unauthorized'}), 401
+    return jsonify({'loggedIn': True})
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    if username == 'admin' and password == 'password':
+        payload = {
+            'user': 'admin',
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+        }
+        token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+        # Return as HttpOnly cookie
+        resp = make_response(jsonify({'success': True}))
+        resp.set_cookie(
+            'jwt',
+            token,
+            httponly=True,
+            samesite='Lax',
+            secure=False
+        )
+        return resp
+
+    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+    
 
 # --- Run ---
 if __name__ == '__main__':

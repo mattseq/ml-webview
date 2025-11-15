@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
   import { Play, Square } from 'lucide-svelte';
@@ -9,8 +9,39 @@
   let socket;
 
   let trainingInProgress = false;
+  let loggedIn = false;
+
+  let username = '';
+  let password = '';
 
   onMount(() => {
+    initialize();
+
+    return () => {
+      if (chart) {
+        chart.destroy();
+      }
+      if (socket) {
+        socket.disconnect();
+      }
+    };
+  });
+
+  async function initialize() {
+    try {
+      const res = await fetch('/api/status', { method: "GET", credentials: 'include' });
+      const data = await res.json();
+      loggedIn = data.loggedIn;
+      if (loggedIn) {
+        await tick();
+        initSocket();
+      }
+    } catch (error) {
+      console.error("Error checking login status:", error);
+    }
+  }
+
+  function initSocket() {
     if (!canvasBind) return;
     
     const ctx = canvasBind.getContext('2d');
@@ -56,43 +87,70 @@
         chart.data.datasets[0].data.push(data.loss);
         chart.update();
     });
+  }
 
-    return () => {
-      if (chart) {
-        chart.destroy();
-      }
-      if (socket) {
-        socket.disconnect();
-      }
-    };
-  });
+  async function login() {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'include'
+      });
 
-  function startTraining() {
-    fetch('/start');
-    trainingInProgress = true;
+      const data = await response.json();
+      if (response.ok && data.success) {
+        loggedIn = true;
+        alert("Login successful!");
+        await tick();
+        initSocket();
+      } else {
+        alert(data.message || "Login failed!");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+    }
+  }
+
+  async function startTraining() {
+    const response = await fetch('/api/start', { method: 'POST', credentials: 'include' });
+    if (response.ok) {
+      trainingInProgress = true;
+    } else {
+      alert("Failed to start training!");
+      return;
+    }
   }
   function stopTraining() {
-    fetch('/stop');
+    fetch('/api/stop', { method: 'POST', credentials: 'include' });
     trainingInProgress = false;
   }
 </script>
 
 <main>
-  <canvas bind:this={canvasBind}></canvas>
-  <div class="controls">
-    {#if trainingInProgress}
-      <p>Training in progress...</p>
-      <button onclick={stopTraining} >
-        <Square size="16" />
-      </button>
+  {#if !loggedIn}
+    <div class="login">
+      <input bind:value={username} placeholder="Username" />
+      <input bind:value={password} placeholder="Password" />
+      <button onclick={login}>Login</button>
+    </div>
+  {:else}
+    <canvas bind:this={canvasBind}></canvas>
+    <div class="controls">
+      {#if trainingInProgress}
+        <p>Training in progress...</p>
+        <button onclick={stopTraining} >
+          <Square size="16" />
+        </button>
 
-    {:else}
-      <p>Training not started.</p>
-      <button onclick={startTraining} >
-        <Play size="16" />
-      </button>
-    {/if}
-  </div>
+      {:else}
+        <p>Training not started.</p>
+        <button onclick={startTraining} >
+          <Play size="16" />
+        </button>
+      {/if}
+    </div>
+  {/if}
   
 </main>
 
@@ -109,7 +167,7 @@
   canvas {
     max-width: 800px;
     width: 100%;
-    height: 70%;
+    aspect-ratio: 2 / 1;
   }
 
   .controls {

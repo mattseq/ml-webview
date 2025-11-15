@@ -2,3 +2,4 @@ data/
 core
 __pycache__/
 *.log
+.env.local

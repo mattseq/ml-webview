@@ -8,3 +8,5 @@ class SocketCallback:
         self.socketio.emit('update', data)
     def finished(self):
         self.socketio.emit('status', {'training': False})
+    def stop(self):
+        self.socketio.emit('status', {'training': False})

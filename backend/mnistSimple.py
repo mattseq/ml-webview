@@ -34,9 +34,6 @@ def train_model(callback=None):
     num_samples = train_images.shape[0]
 
     for epoch in range(1, epochs + 1):
-        if callback.stop_event and callback.stop_event.is_set():
-            print("Training stopped.")
-            return
 
         # Shuffle at start of each epoch
         indices = torch.randperm(num_samples)
@@ -45,6 +42,12 @@ def train_model(callback=None):
 
         epoch_loss = 0
         for i in range(0, num_samples, batch_size):
+            
+            if callback and callback.stop_event and callback.stop_event.is_set():
+                print("Training stopped.")
+                callback.stop()
+                return
+
             batch_inputs = train_images_shuffled[i:i+batch_size]
             batch_targets = train_labels_shuffled[i:i+batch_size]
 

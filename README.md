@@ -14,9 +14,8 @@ cd frontend
 npm run build
 ```
 
-### Run with Docker
-Build Docker image using Docker Compose and run in detached mode.
+### Run Docker Compose
+Navigate to project folder and build and run Docker Compose in detached mode.
 ```
 docker compose up --build -d
 ```
-

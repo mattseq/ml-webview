@@ -64,8 +64,7 @@ def train_model(callback=None):
 
     if callback:
         callback.finished()
-
-    return model
+        return
 
 class PrintUpdateCallback:
         def update(self, data):

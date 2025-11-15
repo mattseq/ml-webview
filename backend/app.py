@@ -66,6 +66,13 @@ def stop_training():
     else:
         return "No training in progress!"
 
+@app.route('/status')
+def training_status():
+    if training_thread and training_thread.is_alive():
+        return {'training': True}
+    else:
+        return {'training': False}
+
 # --- Run ---
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True, debug=True)

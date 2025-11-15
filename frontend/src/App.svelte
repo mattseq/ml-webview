@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
+  import { Play, Square } from 'lucide-svelte';
 
   let chart;
   let canvasBind;
@@ -78,37 +79,57 @@
 
 <main>
   <canvas bind:this={canvasBind}></canvas>
+  <div class="controls">
+    {#if trainingInProgress}
+      <p>Training in progress...</p>
+      <button onclick={stopTraining} >
+        <Square size="16" />
+      </button>
 
-  {#if trainingInProgress}
-    <p>Training in progress...</p>
-    <button onclick={stopTraining} >Stop Training</button>
-  {:else}
-    <p>Training not started.</p>
-    <button onclick={startTraining} >Start Training</button>
-  {/if}
+    {:else}
+      <p>Training not started.</p>
+      <button onclick={startTraining} >
+        <Play size="16" />
+      </button>
+    {/if}
+  </div>
+  
 </main>
 
 <style>
-  canvas {
-    max-width: 800px;
-    max-height: 600px;
-    width: 100%;
-    height: auto;
-  }
-
   main {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    height: 100vh;
+    justify-content: center;
+    padding: 2em;
+    gap: 1.5em;
+  }
+
+  canvas {
+    max-width: 800px;
+    width: 100%;
+    height: 70%;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1em;
   }
 
   button {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    padding: 10px 20px;
-    font-size: 16px;
+    background-color: transparent;
+    color: #333;
+    border: none;
+    font-size: 3em;
+    font-weight: 700;
+    font-family: inherit;
     cursor: pointer;
+    padding: 0px 0px;
   }
+  button:hover {
+    color: #646cff
+  }
+  
 </style>

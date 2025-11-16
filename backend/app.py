@@ -20,6 +20,8 @@ training_history = []
 stop_event = threading.Event()
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
+USERNAME = os.getenv('USERNAME', 'admin')
+PASSWORD = os.getenv('PASSWORD', 'password')
 
 def start_training_thread():
     callback = SocketCallback(socketio, training_history, stop_event)
@@ -101,7 +103,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    if username == 'admin' and password == 'password':
+    if username == USERNAME and password == PASSWORD:
         payload = {
             'user': 'admin',
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=8)

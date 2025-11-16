@@ -69,9 +69,11 @@ def start_training():
         stop_event.clear()
         training_thread = threading.Thread(target=start_training_thread)
         training_thread.start()
+        socketio.emit('status', {'training': True})
         return "Training started!"
     else:
         return "Training already in progress!"
+    
 
 @app.route('/api/stop', methods=['POST'])
 def stop_training():
@@ -82,6 +84,7 @@ def stop_training():
     if training_thread and training_thread.is_alive():
         stop_event.set()
         training_thread.join(timeout=1)
+        socketio.emit('status', {'training': False})
         return "Training stopped!"
     else:
         return "No training in progress!"

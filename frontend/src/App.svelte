@@ -101,10 +101,10 @@
       const data = await response.json();
       if (response.ok && data.success) {
         loggedIn = true;
-        alert("Login successful!");
         await tick();
         initSocket();
       } else {
+        loggedIn = false;
         alert(data.message || "Login failed!");
       }
     } catch (err) {
@@ -114,39 +114,43 @@
 
   async function startTraining() {
     const response = await fetch('/api/start', { method: 'POST', credentials: 'include' });
-    if (response.ok) {
-      trainingInProgress = true;
-    } else {
+    if (!response.ok) {
       alert("Failed to start training!");
       return;
     }
   }
-  function stopTraining() {
-    fetch('/api/stop', { method: 'POST', credentials: 'include' });
-    trainingInProgress = false;
+  async function stopTraining() {
+    const response = await fetch('/api/stop', { method: 'POST', credentials: 'include' });
+    if (!response.ok) {
+      alert("Failed to stop training!");
+      return;
+    }
   }
 </script>
 
 <main>
   {#if !loggedIn}
-    <div class="login">
-      <input bind:value={username} placeholder="Username" />
-      <input bind:value={password} placeholder="Password" />
-      <button onclick={login}>Login</button>
+    <div class="login-card">
+      <h1>ML Webview</h1>
+      <div class="login-form">
+        <input bind:value={username} placeholder="Username" />
+        <input bind:value={password} placeholder="Password" />
+        <button class="login-button" onclick={login}>Login</button>
+      </div>
     </div>
   {:else}
-    <canvas bind:this={canvasBind}></canvas>
+    <div class="canvas-wrapper">
+      <canvas bind:this={canvasBind}></canvas>
+    </div>
     <div class="controls">
       {#if trainingInProgress}
-        <p>Training in progress...</p>
-        <button onclick={stopTraining} >
-          <Square size="16" />
+        <button class="control-button" onclick={stopTraining} >
+          <Square size="20" />
         </button>
 
       {:else}
-        <p>Training not started.</p>
-        <button onclick={startTraining} >
-          <Play size="16" />
+        <button class="control-button" onclick={startTraining} >
+          <Play size="20" />
         </button>
       {/if}
     </div>
@@ -160,33 +164,86 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2em;
     gap: 1.5em;
+    height: 100%;
+  }
+
+  .login-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5em;
+    padding: 4em;
+    background-color: #333;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  input {
+    padding: 0.5em;
+    font-size: 1em;
+    border-radius: 6px;
+    border: none;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+  }
+
+  .login-button {
+    padding: 0.5em;
+    font-size: 1em;
+    border-radius: 6px;
+    border: none;
+    background-color: #6366f1;
+    color: white;
+    cursor: pointer;
+  }
+  .login-button:hover {
+    background-color: #535bf2;
+  }
+
+  .canvas-wrapper {
+    width: 70%;
+    display: flex;
+    justify-content: center;
+    background-color: #333;
+    padding: 1em;
+    border-radius: 20px;
   }
 
   canvas {
-    max-width: 800px;
     width: 100%;
     aspect-ratio: 2 / 1;
+    align-self: center;
   }
 
   .controls {
     display: flex;
     align-items: center;
     gap: 1em;
+    width: 70%;
+    background-color: #333;
+    padding: 1em;
+    border-radius: 20px;
   }
 
-  button {
+  .control-button {
     background-color: transparent;
-    color: #333;
+    color: white;
     border: none;
     font-size: 3em;
-    font-weight: 700;
+    font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    padding: 0px 0px;
+    padding: 0px 5px;
+    display: flex;
+    align-items: left;
   }
-  button:hover {
+  .control-button:hover {
     color: #646cff
   }
   

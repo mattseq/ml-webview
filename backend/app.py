@@ -8,10 +8,8 @@ import jwt # type: ignore
 from mnistSimple import train_model
 from interface import SocketCallback
 
-BASE_DIR = os.path.dirname(__file__)
-FRONTEND_DIST = os.path.abspath(os.path.join(BASE_DIR, '..', 'frontend', 'dist'))
 
-app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path='')
+app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 training_thread = None
@@ -55,11 +53,7 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     print('Client disconnected')
-
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
-
+    
 @app.route('/api/start', methods=['POST'])
 def start_training():
     if not check_auth():

@@ -8,7 +8,6 @@ import jwt # type: ignore
 from mnistSimple import train_model
 from interface import SocketCallback
 
-
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 

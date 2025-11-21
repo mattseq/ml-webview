@@ -2,8 +2,8 @@
   import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
-  import { Play, Square } from 'lucide-svelte';
-
+  import { Play, Square, Download, ImageDown, FileDown } from 'lucide-svelte';
+  
   let chart;
   let canvasBind;
   let socket;
@@ -126,6 +126,33 @@
       return;
     }
   }
+
+  function downloadChart() {
+    if (!chart) return;
+    const link = document.createElement('a');
+    link.href = chart.toBase64Image();
+    link.download = `experiment_${Date.now()}.png`;
+    link.click();
+  }
+
+  function downloadCSV() {
+    if (!chart) return;
+
+    const rows = [["Epoch", "Loss"]];
+    chart.data.labels.forEach((label, i) => {
+      rows.push([label, chart.data.datasets[0].data[i]]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,"
+      + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.href = encodedUri;
+    link.download = `experiment_${Date.now()}.csv`;
+    link.click();
+  }
+
 </script>
 
 <main>
@@ -144,15 +171,21 @@
     </div>
     <div class="controls">
       {#if trainingInProgress}
-        <button class="control-button" onclick={stopTraining} >
+        <button class="control-button play-button" onclick={stopTraining} >
           <Square size="20" />
         </button>
 
       {:else}
-        <button class="control-button" onclick={startTraining} >
+        <button class="control-button play-button" onclick={startTraining} >
           <Play size="20" />
         </button>
       {/if}
+      <button class="control-button" onclick={downloadChart}>
+        <ImageDown size="20" />
+      </button>
+      <button class="control-button" onclick={downloadCSV}>
+        <FileDown size="20" />
+      </button>
     </div>
   {/if}
   
@@ -227,7 +260,7 @@
     gap: 1em;
     width: 70%;
     background-color: #333;
-    padding: 1em;
+    /* padding: 1em; */
     border-radius: 20px;
   }
 
@@ -239,12 +272,25 @@
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    padding: 0px 5px;
+    /* padding: 0px 5px; */
+    padding: 0.2em 0.5em;
     display: flex;
     align-items: left;
   }
   .control-button:hover {
     color: #646cff
+  }
+
+  .play-button {
+    color: #646cff;
+    border-radius: 20px;
+    border-width: 2px;
+    border-style: solid;
+    border-color: #2a2a2a;
+  }
+  .play-button:hover {
+    background-color: #646cff;
+    color: white;
   }
   
 </style>

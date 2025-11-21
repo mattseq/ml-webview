@@ -14,6 +14,10 @@
   let username = '';
   let password = '';
 
+  let startTime = null;
+  let elapsedTime = '00:00:00';
+  let timerInterval;
+
   onMount(() => {
     initialize();
 
@@ -68,6 +72,13 @@
     socket.on('status', (status) => {
       console.log("Status received:", status);
       trainingInProgress = status.training
+
+      if (trainingInProgress && status.start_time) {
+        startTime = status.start_time;
+        startTimer();
+      } else {
+        stopTimer();
+      }
     })
 
     socket.on('history', (history) => {
@@ -153,6 +164,30 @@
     link.click();
   }
 
+  function updateTrainingDuration() {
+    if (!startTime) return;
+
+    const diff = Date.now() - startTime;
+    const hours = String(Math.floor(diff / 3600000)).padStart(2, "0");
+    const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+    const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+
+    elapsedTime = `${hours}:${minutes}:${seconds}`;
+  }
+
+  function startTimer() {
+    if (timerInterval) return;
+    timerInterval = setInterval(updateTrainingDuration, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    startTime = null;
+    elapsedTime = "00:00:00";
+  }
+
+
 </script>
 
 <main>
@@ -167,6 +202,9 @@
     </div>
   {:else}
     <div class="canvas-wrapper">
+      {#if trainingInProgress}
+        <p class="training-duration">{elapsedTime}</p>
+      {/if}
       <canvas bind:this={canvasBind}></canvas>
     </div>
     <div class="controls">
@@ -242,10 +280,18 @@
   .canvas-wrapper {
     width: 70%;
     display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    background-color: #333;
-    padding: 1em;
+    background-color: hsl(0, 0%, 20%);
+    /* padding: 1em; */
     border-radius: 20px;
+  }
+
+  .training-duration {
+    color: white;
+    margin-bottom: 0.5em;
+    font-size: 1.2em;
   }
 
   canvas {
@@ -259,7 +305,7 @@
     align-items: center;
     gap: 1em;
     width: 70%;
-    background-color: #333;
+    background-color: hsl(0, 0%, 20%);
     /* padding: 1em; */
     border-radius: 20px;
   }
@@ -272,7 +318,6 @@
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    /* padding: 0px 5px; */
     padding: 0.2em 0.5em;
     display: flex;
     align-items: left;
@@ -284,9 +329,7 @@
   .play-button {
     color: #646cff;
     border-radius: 20px;
-    border-width: 2px;
-    border-style: solid;
-    border-color: #2a2a2a;
+    /* background-color: hsl(0, 0%, 13%) */
   }
   .play-button:hover {
     background-color: #646cff;

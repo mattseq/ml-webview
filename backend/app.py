@@ -16,6 +16,8 @@ training_history = []
 
 stop_event = threading.Event()
 
+training_start_time = None
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
 USERNAME = os.getenv('USERNAME', 'admin')
 PASSWORD = os.getenv('PASSWORD', 'password')
@@ -42,12 +44,12 @@ def handle_connect():
     
     if training_history:
         emit('history', training_history)
+    
+    status = {'training': training_thread and training_thread.is_alive()}
+    if status['training'] and training_start_time:
+        status['start_time'] = training_start_time
 
-    # send current status
-    if training_thread and training_thread.is_alive():
-        emit('status', {'training': True})
-    else:
-        emit('status', {'training': False})
+    emit('status', status)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -58,13 +60,14 @@ def start_training():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
-    global training_thread, stop_event
+    global training_thread, stop_event, training_start_time
     if training_thread is None or not training_thread.is_alive():
         training_history.clear()
         stop_event.clear()
+        training_start_time = int(datetime.datetime.utcnow().timestamp() * 1000)
         training_thread = threading.Thread(target=start_training_thread)
         training_thread.start()
-        socketio.emit('status', {'training': True})
+        socketio.emit('status', {'training': True, 'start_time': training_start_time})
         return "Training started!"
     else:
         return "Training already in progress!"
@@ -85,7 +88,7 @@ def stop_training():
         return "No training in progress!"
 
 @app.route('/api/status', methods=['GET'])
-def training_status():
+def status():
     if not check_auth():
         return jsonify({'loggedIn': False, 'message': 'Unauthorized'}), 401
     return jsonify({'loggedIn': True})

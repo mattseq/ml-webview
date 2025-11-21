@@ -13,7 +13,7 @@ services:
       - ./frontend/dist:/frontend/dist
     restart: unless-stopped
   caddy:
-    image: caddy:latest
+    image: caddy:2.10.2-alpine
     restart: unless-stopped
     ports:
     - "443:443"

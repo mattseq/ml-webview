@@ -7,6 +7,7 @@ import datetime
 import jwt # type: ignore
 from mnistSimple import train_model
 from interface import SocketCallback
+import db
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -17,6 +18,7 @@ training_history = []
 stop_event = threading.Event()
 
 training_start_time = None
+training_end_time = None
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
 USERNAME = os.getenv('USERNAME', 'admin')
@@ -60,11 +62,12 @@ def start_training():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
-    global training_thread, stop_event, training_start_time
+    global training_thread, stop_event, training_start_time, training_end_time
     if training_thread is None or not training_thread.is_alive():
         training_history.clear()
         stop_event.clear()
         training_start_time = int(datetime.datetime.utcnow().timestamp() * 1000)
+        training_end_time = None
         training_thread = threading.Thread(target=start_training_thread)
         training_thread.start()
         socketio.emit('status', {'training': True, 'start_time': training_start_time})
@@ -78,8 +81,9 @@ def stop_training():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
-    global stop_event
+    global stop_event, training_thread, training_end_time
     if training_thread and training_thread.is_alive():
+        training_end_time = int(datetime.datetime.utcnow().timestamp() * 1000)
         stop_event.set()
         training_thread.join(timeout=1)
         socketio.emit('status', {'training': False})
@@ -118,7 +122,42 @@ def login():
         return resp
 
     return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
-    
+
+@app.route('/api/runs', methods=['POST'])
+def save_run():
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    data = request.json
+    title = data.get('title', 'Untitled Run')
+    description = data.get('description', '')
+    start_time = training_start_time
+    if training_end_time:
+        end_time = training_end_time
+    else:
+        end_time = int(datetime.datetime.utcnow().timestamp() * 1000)
+
+    run_id = db.save_run(title, description, start_time, end_time, training_history)
+    return jsonify({'success': True, 'run_id': run_id})
+
+@app.route('/api/runs', methods=['GET'])
+def list_runs():
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    runs = db.list_runs()
+    return jsonify({'success': True, 'runs': runs})
+
+@app.route('/api/runs/<run_id>', methods=['GET'])
+def get_run(run_id):
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    run = db.get_run(run_id)
+    if run:
+        return jsonify({'success': True, 'run': run})
+    else:
+        return jsonify({'success': False, 'message': 'Run not found'}), 404
 
 # --- Run ---
 if __name__ == '__main__':

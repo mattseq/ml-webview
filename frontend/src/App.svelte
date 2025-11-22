@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
-  import { Play, Square, Download, ImageDown, FileDown } from 'lucide-svelte';
+  import { Play, Square, ImageDown, FileDown, HardDriveDownload } from 'lucide-svelte';
   import { showToast } from './lib/toast.js';
   import Toasts from './lib/Toasts.svelte';
   
@@ -19,6 +19,10 @@
   let startTime = null;
   let elapsedTime = '00:00:00';
   let timerInterval;
+
+  let previousRuns = []
+  let runTitle = '';
+  let runDescription = '';
 
   onMount(() => {
     initialize();
@@ -41,6 +45,7 @@
       if (loggedIn) {
         await tick();
         initSocket();
+        fetchRuns();
       }
     } catch (error) {
       console.error("Error checking login status:", error);
@@ -200,6 +205,36 @@
     elapsedTime = "00:00:00";
   }
 
+  async function fetchRuns() {
+    try {
+      const res = await fetch('/api/runs', { method: "GET", credentials: 'include' });
+      const data = await res.json();
+      previousRuns = data.runs || [];
+    } catch (error) {
+      console.error("Error fetching runs:", error);
+      return [];
+    }
+  }
+
+  async function saveRun() {
+    try {
+      const res = await fetch('/api/runs', {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ runTitle, runDescription })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Run saved successfully!", "success");
+      } else {
+        showToast("Failed to save run!", "error");
+      }
+    } catch (error) {
+      console.error("Error saving run:", error);
+      showToast("Error saving run!", "error");
+    }
+  }
 
 </script>
 
@@ -236,6 +271,9 @@
       </button>
       <button class="control-button" onclick={downloadCSV}>
         <FileDown size="20" />
+      </button>
+      <button class="control-button" onclick={saveRun}>
+        <HardDriveDownload size="20" />
       </button>
     </div>
   {/if}

@@ -6,11 +6,19 @@ services:
       - SECRET_KEY=supersecretkey
       - USERNAME=admin
       - PASSWORD=admin123
+      - MONGO_URI=mongodb://db:27017/
     ports:
       - "5000:5000"
     volumes:
       - ./backend:/backend
     restart: unless-stopped
+  db:
+    image: mongo:8.2.2
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./db_data:/data/db
   caddy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped

@@ -3,6 +3,8 @@
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
   import { Play, Square, Download, ImageDown, FileDown } from 'lucide-svelte';
+  import { showToast } from './lib/toast.js';
+  import Toasts from './lib/Toasts.svelte';
   
   let chart;
   let canvasBind;
@@ -112,30 +114,41 @@
       const data = await response.json();
       if (response.ok && data.success) {
         loggedIn = true;
+        showToast("Login successful!", "success");
         await tick();
         initSocket();
       } else {
         loggedIn = false;
-        alert(data.message || "Login failed!");
+        showToast("Login failed!", "error");
       }
     } catch (err) {
       console.error("Login error:", err);
+      showToast("Login error!", "error");
     }
   }
 
   async function startTraining() {
     const response = await fetch('/api/start', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
-      alert("Failed to start training!");
+      showToast("Failed to start training!", "error");
       return;
     }
+
+    // clear existing chart data
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
+
+    showToast("Training started!", "info");
   }
   async function stopTraining() {
     const response = await fetch('/api/stop', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
-      alert("Failed to stop training!");
+      showToast("Failed to stop training!", "error");
       return;
     }
+
+    showToast("Training stopped!", "info");
   }
 
   function downloadChart() {
@@ -226,7 +239,7 @@
       </button>
     </div>
   {/if}
-  
+  <Toasts />
 </main>
 
 <style>
@@ -284,7 +297,6 @@
     align-items: center;
     justify-content: center;
     background-color: hsl(0, 0%, 20%);
-    /* padding: 1em; */
     border-radius: 20px;
   }
 
@@ -298,15 +310,15 @@
     width: 100%;
     aspect-ratio: 2 / 1;
     align-self: center;
+    margin: 1em;
   }
 
   .controls {
     display: flex;
     align-items: center;
-    gap: 1em;
+    /* gap: 1em; */
     width: 70%;
     background-color: hsl(0, 0%, 20%);
-    /* padding: 1em; */
     border-radius: 20px;
   }
 
@@ -328,7 +340,9 @@
 
   .play-button {
     color: #646cff;
-    border-radius: 20px;
+    border-bottom-left-radius: 20px;
+    border-top-left-radius: 20px;
+    border-right: 1px solid hsl(0, 0%, 13%);
     /* background-color: hsl(0, 0%, 13%) */
   }
   .play-button:hover {

@@ -45,7 +45,7 @@ def handle_connect():
     if training_history:
         emit('history', training_history)
     
-    status = {'training': training_thread and training_thread.is_alive()}
+    status = {'training': training_thread is not None and training_thread.is_alive()}
     if status['training'] and training_start_time:
         status['start_time'] = training_start_time
 
@@ -122,4 +122,4 @@ def login():
 
 # --- Run ---
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)

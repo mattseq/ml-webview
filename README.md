@@ -5,6 +5,7 @@
 ## Tech Stack
 - **Backend:** Flask + Flask-SocketIO for real-time updates
 - **Frontend:** Svelte with Chart.js for live graphing
+- **Database:** PostgreSQL for storing previous training runs and their metrics
 - **Reverse Proxy:** Caddy to serve frontend and backend
 
 ## Run with Docker

@@ -210,6 +210,7 @@
       const res = await fetch('/api/runs', { method: "GET", credentials: 'include' });
       const data = await res.json();
       previousRuns = data.runs || [];
+      console.log("Fetched runs: ", previousRuns);
     } catch (error) {
       console.error("Error fetching runs:", error);
       return [];
@@ -222,7 +223,7 @@
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ runTitle, runDescription })
+        body: JSON.stringify({ "title": runTitle, "description": runDescription })
       });
       const data = await res.json();
       if (data.success) {

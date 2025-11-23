@@ -1,35 +1,55 @@
-from pymongo import MongoClient # type: ignore
-from bson.objectid import ObjectId # type: ignore
+from typing import Any, Dict, List, Optional
 import os
+from flask_sqlalchemy import SQLAlchemy # type: ignore
+from flask import Flask # type: ignore
 
-mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
-mongo = MongoClient(mongo_uri)
-db = mongo['webview']
+db = SQLAlchemy()
 
-runs_collection = db['runs']
+class Run(db.Model):
+    __tablename__ = 'runs'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    start_time = db.Column(db.BigInteger, nullable=False)
+    end_time = db.Column(db.BigInteger, nullable=True)
+    training_history = db.Column(db.PickleType, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'training_history': self.training_history
+        }
+
+def init_db(app):
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
 
 def save_run(title, description, start_time, end_time, training_history):
-    run_doc = {
-        'title': title,
-        'description': description,
-        'start_time': start_time,
-        'end_time': end_time,
-        'training_history': training_history
-    }
+    run = Run(
+        title=title,
+        description=description,
+        start_time=start_time,
+        end_time=end_time,
+        training_history=training_history
+    )
     
-    result = runs_collection.insert_one(run_doc)
-    return str(result.inserted_id)
+    db.session.add(run)
+    db.session.commit()
+    return int(run.id)
 
 def get_run(run_id):
-    run = runs_collection.find_one({'_id': ObjectId(run_id)})
+    run = Run.query.get(run_id)
     if run:
-        run['id'] = str(run['_id'])
-        del run['_id']
-    return run
+        return run.to_dict()
+    return None
 
 def list_runs():
-    runs = list(runs_collection.find().sort('start_time', -1))
-    for run in runs:
-        run['id'] = str(run['_id'])
-        del run['_id']
-    return runs
+    rows = Run.query.order_by(Run.start_time.desc()).all()
+    return [row.to_dict() for row in rows]

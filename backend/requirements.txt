@@ -5,3 +5,5 @@ numpy
 torchvision
 PyJWT
 pymongo
+Flask-SQLAlchemy==3.0.5
+psycopg2-binary

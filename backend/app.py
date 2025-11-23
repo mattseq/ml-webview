@@ -24,6 +24,9 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
 USERNAME = os.getenv('USERNAME', 'admin')
 PASSWORD = os.getenv('PASSWORD', 'password')
 
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://user:password@db:5432/webview')
+db.init_db(app)
+
 def start_training_thread():
     callback = SocketCallback(socketio, training_history, stop_event)
     train_model(callback=callback)
@@ -128,17 +131,24 @@ def save_run():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
-    data = request.json
-    title = data.get('title', 'Untitled Run')
-    description = data.get('description', '')
-    start_time = training_start_time
-    if training_end_time:
-        end_time = training_end_time
-    else:
-        end_time = int(datetime.datetime.utcnow().timestamp() * 1000)
+    global training_start_time, training_end_time, training_history
+    try:
+        data = request.json
+        title = data.get('title', 'Untitled Run')
+        description = data.get('description', '')
+        start_time = training_start_time
+        if training_end_time:
+            end_time = training_end_time
+        else:
+            end_time = int(datetime.datetime.utcnow().timestamp() * 1000)
 
-    run_id = db.save_run(title, description, start_time, end_time, training_history)
-    return jsonify({'success': True, 'run_id': run_id})
+        run_id = db.save_run(title, description, start_time, end_time, training_history)
+        return jsonify({'success': True, 'run_id': run_id})
+    except Exception as e:
+        import traceback, sys
+        tb = traceback.format_exc()
+        print(tb, file=sys.stderr)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/runs', methods=['GET'])
 def list_runs():

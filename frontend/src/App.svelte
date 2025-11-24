@@ -276,15 +276,30 @@
           <Play size="20" />
         </button>
       {/if}
-      <button class="control-button" onclick={downloadChart}>
+      <button class="control-button" title="Download Chart" onclick={downloadChart}>
         <ImageDown size="20" />
       </button>
-      <button class="control-button" onclick={downloadCSV}>
+      <button class="control-button" title="Download CSV" onclick={downloadCSV}>
         <FileDown size="20" />
       </button>
-      <button class="control-button" onclick={openSaveModal}>
+      <button class="control-button" title="Save Run" onclick={openSaveModal}>
         <HardDriveDownload size="20" />
       </button>
+    </div>
+    <div class="previous-runs">
+      <h2>Previous Runs</h2>
+      {#if previousRuns.length === 0}
+        <p>No previous runs found.</p>
+      {:else}
+        <ul>
+          {#each previousRuns as run}
+            <li>
+              <strong>{run.title}</strong> - {new Date(run.end_time).toLocaleString()}
+              <p>{run.description}</p>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </div>
     {#if showSaveModal}
       <div class="modal-overlay">
@@ -306,9 +321,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    padding: 2em;
     gap: 1.5em;
-    height: 100%;
   }
 
   .login-card {
@@ -321,6 +336,11 @@
     background-color: #333;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
   
   input {
@@ -451,6 +471,32 @@
 
   .modal button:hover {
     background-color: #535bf2;
+  }
+
+  .previous-runs {
+    width: 85%;
+    background-color: hsl(0, 0%, 20%);
+    border-radius: 20px;
+    padding: 1em;
+  }
+
+  .previous-runs ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .previous-runs li {
+    border-top: 1px solid hsl(0, 0%, 30%);
+    padding: 0.5em 0;
+  }
+
+  .previous-runs strong {
+    color: #646cff;
+  }
+
+  .previous-runs p {
+    margin: 0.2em 0 0 0;
+    color: hsl(0, 0%, 70%);
   }
   
 </style>

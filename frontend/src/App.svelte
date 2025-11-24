@@ -24,6 +24,15 @@
   let runTitle = '';
   let runDescription = '';
 
+  let showSaveModal = false;
+
+  function openSaveModal() {
+    showSaveModal = true;
+  }
+  function closeSaveModal() {
+    showSaveModal = false;
+  }
+
   onMount(() => {
     initialize();
 
@@ -273,10 +282,21 @@
       <button class="control-button" onclick={downloadCSV}>
         <FileDown size="20" />
       </button>
-      <button class="control-button" onclick={saveRun}>
+      <button class="control-button" onclick={openSaveModal}>
         <HardDriveDownload size="20" />
       </button>
     </div>
+    {#if showSaveModal}
+      <div class="modal-overlay">
+        <div class="modal">
+          <h2>Save Training Run</h2>
+          <input bind:value={runTitle} placeholder="Run Title" />
+          <textarea bind:value={runDescription} placeholder="Run Description"></textarea>
+          <button onclick={() => { saveRun(); closeSaveModal(); }}>Save</button>
+          <button onclick={closeSaveModal}>Cancel</button>
+        </div>
+      </div>
+    {/if}
   {/if}
   <Toasts />
 </main>
@@ -387,6 +407,50 @@
   .play-button:hover {
     background-color: #646cff;
     color: white;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal {
+    background-color: hsl(0, 0%, 20%);
+    padding: 2em;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    width: 300px;
+  }
+
+  .modal input, .modal textarea {
+    width: 100%;
+    padding: 0.5em;
+    font-size: 1em;
+    border-radius: 6px;
+    border: 1px solid hsl(0, 0%, 40%);
+  }
+
+  .modal button {
+    padding: 0.5em;
+    font-size: 1em;
+    border-radius: 6px;
+    border: none;
+    background-color: #6366f1;
+    color: white;
+    cursor: pointer;
+  }
+
+  .modal button:hover {
+    background-color: #535bf2;
   }
   
 </style>

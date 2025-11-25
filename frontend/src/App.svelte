@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import Chart from 'chart.js/auto';
   import { io } from 'socket.io-client';
-  import { Play, Square, ImageDown, FileDown, HardDriveDownload } from 'lucide-svelte';
+  import { Play, Square, ImageDown, FileDown, HardDriveDownload, Radio } from 'lucide-svelte';
   import { showToast } from './lib/toast.js';
   import Toasts from './lib/Toasts.svelte';
   
@@ -26,6 +26,8 @@
 
   let showSaveModal = false;
 
+  let currentRunId = null;
+
   function openSaveModal() {
     showSaveModal = true;
   }
@@ -46,6 +48,26 @@
     };
   });
 
+  $: {
+    if (loggedIn && currentRunId === null) {
+      initSocketAndChart();
+    }
+    if (loggedIn && currentRunId != null) {
+      const currentRunData = previousRuns.find(run => run.id == currentRunId);
+      initChartForData(currentRunData);
+    }
+  }
+
+  function disconnectSocket() {
+    if (socket) {
+      socket.off('status');
+      socket.off('history');
+      socket.off('update');
+      socket.disconnect();
+      socket = null;
+    }
+  }
+
   async function initialize() {
     try {
       const res = await fetch('/api/status', { method: "GET", credentials: 'include' });
@@ -53,7 +75,6 @@
       loggedIn = data.loggedIn;
       if (loggedIn) {
         await tick();
-        initSocket();
         fetchRuns();
       }
     } catch (error) {
@@ -61,8 +82,11 @@
     }
   }
 
-  function initSocket() {
+  function initSocketAndChart() {
     if (!canvasBind) return;
+    
+    if (chart) chart.destroy();
+    disconnectSocket();
     
     const ctx = canvasBind.getContext('2d');
     chart = new Chart(ctx, {
@@ -114,6 +138,43 @@
         chart.data.datasets[0].data.push(data.loss);
         chart.update();
     });
+    
+  }
+
+  function initChartForData(runData) {
+    if (!canvasBind) return;
+    if (!runData) return;
+
+    if (chart) chart.destroy();
+    disconnectSocket();
+
+    stopTimer();
+
+    const ctx = canvasBind.getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: 'red', fill: false }] },
+      options: {
+          responsive: true,
+          scales: {
+              x: {
+                  title: { display: true, text: 'Epoch' },
+                  beginAtZero: true
+              },
+              y: {
+                  title: { display: true, text: 'Loss' },
+                  beginAtZero: true
+              }
+          }
+      }
+    });
+
+    runData.training_history.forEach(data => {
+        chart.data.labels.push(data.epoch);
+        chart.data.datasets[0].data.push(data.loss);
+    });
+
+    chart.update();
   }
 
   async function login() {
@@ -129,8 +190,6 @@
       if (response.ok && data.success) {
         loggedIn = true;
         showToast("Login successful!", "success");
-        await tick();
-        initSocket();
       } else {
         loggedIn = false;
         showToast("Login failed!", "error");
@@ -260,20 +319,24 @@
     </div>
   {:else}
     <div class="canvas-wrapper">
-      {#if trainingInProgress}
+      {#if trainingInProgress && currentRunId == null}
         <p class="training-duration">{elapsedTime}</p>
       {/if}
       <canvas bind:this={canvasBind}></canvas>
     </div>
     <div class="controls">
-      {#if trainingInProgress}
+      {#if trainingInProgress && currentRunId == null}
         <button class="control-button play-button" onclick={stopTraining} >
           <Square size="20" />
         </button>
 
-      {:else}
+      {:else if !trainingInProgress && currentRunId == null}
         <button class="control-button play-button" onclick={startTraining} >
           <Play size="20" />
+        </button>
+      {:else if currentRunId != null}
+        <button class="control-button play-button" title="View Live Run" onclick={() => { currentRunId = null; }} >
+          <Radio size="20" />
         </button>
       {/if}
       <button class="control-button" title="Download Chart" onclick={downloadChart}>
@@ -282,9 +345,11 @@
       <button class="control-button" title="Download CSV" onclick={downloadCSV}>
         <FileDown size="20" />
       </button>
-      <button class="control-button" title="Save Run" onclick={openSaveModal}>
-        <HardDriveDownload size="20" />
-      </button>
+      {#if currentRunId == null}
+        <button class="control-button" title="Save Run" onclick={openSaveModal}>
+          <HardDriveDownload size="20" />
+        </button>
+      {/if}
     </div>
     <div class="previous-runs">
       <h2>Previous Runs</h2>
@@ -294,8 +359,10 @@
         <ul>
           {#each previousRuns as run}
             <li>
-              <strong>{run.title}</strong> - {new Date(run.end_time).toLocaleString()}
-              <p>{run.description}</p>
+              <button class="run-item-button" onclick={() => { currentRunId = run.id; }} title="View Saved Run">
+                <strong>{run.title}</strong> - {new Date(run.end_time).toLocaleString()}
+                <p>{run.description}</p>
+              </button>
             </li>
           {/each}
         </ul>
@@ -307,7 +374,7 @@
           <h2>Save Training Run</h2>
           <input bind:value={runTitle} placeholder="Run Title" />
           <textarea bind:value={runDescription} placeholder="Run Description"></textarea>
-          <button onclick={() => { saveRun(); closeSaveModal(); }}>Save</button>
+          <button onclick={() => { saveRun(); closeSaveModal(); fetchRuns();}}>Save</button>
           <button onclick={closeSaveModal}>Cancel</button>
         </div>
       </div>
@@ -422,7 +489,6 @@
     border-bottom-left-radius: 20px;
     border-top-left-radius: 20px;
     border-right: 1px solid hsl(0, 0%, 13%);
-    /* background-color: hsl(0, 0%, 13%) */
   }
   .play-button:hover {
     background-color: #646cff;
@@ -451,8 +517,11 @@
     width: 300px;
   }
 
+  .modal h2 {
+    text-align: center;
+  }
+
   .modal input, .modal textarea {
-    width: 100%;
     padding: 0.5em;
     font-size: 1em;
     border-radius: 6px;
@@ -498,5 +567,23 @@
     margin: 0.2em 0 0 0;
     color: hsl(0, 0%, 70%);
   }
+
+  .run-item-button {
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .run-item-button:hover {
+    background: hsl(0, 0%, 25%);
+    border-radius: 8px;
+  }
+
   
 </style>

@@ -1,4 +1,5 @@
 from flask import Flask, send_from_directory, jsonify, request, make_response # type: ignore
+from functools import wraps
 from flask_socketio import SocketIO, emit # type: ignore
 import threading
 import os
@@ -43,6 +44,14 @@ def check_auth():
     except jwt.InvalidTokenError:
         return False
 
+def auth_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not check_auth():
+            return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 @socketio.on('connect')
 def handle_connect():
     print('Client connected')
@@ -59,8 +68,9 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     print('Client disconnected')
-    
+
 @app.route('/api/start', methods=['POST'])
+@auth_required
 def start_training():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -80,6 +90,7 @@ def start_training():
     
 
 @app.route('/api/stop', methods=['POST'])
+@auth_required
 def stop_training():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -127,6 +138,7 @@ def login():
     return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
 
 @app.route('/api/runs', methods=['POST'])
+@auth_required
 def save_run():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -151,6 +163,7 @@ def save_run():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/runs', methods=['GET'])
+@auth_required
 def list_runs():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -159,6 +172,7 @@ def list_runs():
     return jsonify({'success': True, 'runs': runs})
 
 @app.route('/api/runs', methods=['DELETE'])
+@auth_required
 def delete_all_runs():
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -167,6 +181,7 @@ def delete_all_runs():
     return jsonify({'success': True, 'runs': runs})
 
 @app.route('/api/runs/<run_id>', methods=['GET'])
+@auth_required
 def get_run(run_id):
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -178,6 +193,7 @@ def get_run(run_id):
         return jsonify({'success': False, 'message': 'Run not found'}), 404
 
 @app.route('/api/runs/<run_id>', methods=['DELETE'])
+@auth_required
 def delete_run(run_id):
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
@@ -189,6 +205,7 @@ def delete_run(run_id):
         return jsonify({'success': False, 'message': 'Run not found'}), 404
 
 @app.route('/api/runs/<run_id>', methods=['PUT'])
+@auth_required
 def edit_run(run_id):
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401

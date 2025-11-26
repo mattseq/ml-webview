@@ -2,11 +2,8 @@ version: '3.9'
 services:
   backend:
     build: ./backend
-    environment:
-      - SECRET_KEY=supersecretkey
-      - USERNAME=admin
-      - PASSWORD=admin123
-      - DATABASE_URL=postgresql://user:password@db:5432/webview
+    env_file:
+      - .env
     ports:
       - "5000:5000"
     volumes:
@@ -16,10 +13,8 @@ services:
       - db
   db:
     image: postgres:15
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=webview
+    env_file:
+      - .env
     restart: unless-stopped
     ports:
       - "5432:5432"

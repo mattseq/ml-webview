@@ -25,7 +25,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'supersecretkey')
 USERNAME = os.getenv('USERNAME', 'admin')
 PASSWORD = os.getenv('PASSWORD', 'password')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://user:password@db:5432/webview')
+POSTGRES_USER = os.getenv('POSTGRES_USER', 'user')
+POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'password')
+POSTGRES_DB = os.getenv('POSTGRES_DB', 'webview')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db:5432/{POSTGRES_DB}'
 db.init_db(app)
 
 def start_training_thread():

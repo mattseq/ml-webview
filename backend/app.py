@@ -160,8 +160,8 @@ def list_runs():
 
 @app.route('/api/runs', methods=['DELETE'])
 def delete_all_runs():
-    # if not check_auth():
-    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
     runs = db.delete_all_runs()
     return jsonify({'success': True, 'runs': runs})
@@ -179,8 +179,8 @@ def get_run(run_id):
 
 @app.route('/api/runs/<run_id>', methods=['DELETE'])
 def delete_run(run_id):
-    # if not check_auth():
-    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
     run = db.delete_run(run_id)
     if run:
@@ -190,8 +190,8 @@ def delete_run(run_id):
 
 @app.route('/api/runs/<run_id>', methods=['PUT'])
 def edit_run(run_id):
-    # if not check_auth():
-    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    if not check_auth():
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
     data = request.json
     title = data.get('title', None)

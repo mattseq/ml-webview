@@ -53,3 +53,30 @@ def get_run(run_id):
 def list_runs():
     rows = Run.query.order_by(Run.start_time.desc()).all()
     return [row.to_dict() for row in rows]
+
+def delete_run(run_id):
+    run = Run.query.get(run_id)
+    if run:
+        db.session.delete(run)
+        db.session.commit()
+        return run.to_dict()
+    return None
+
+def delete_all_runs():
+    runs = Run.query.all()
+    run_dicts = [run.to_dict() for run in runs]
+    for run in runs:
+        db.session.delete(run)
+    db.session.commit()
+    return run_dicts
+
+def edit_run(run_id, title, description):
+    run = Run.query.get(run_id)
+    if run:
+        if title is not None:
+            run.title = title
+        if description is not None:
+            run.description = description
+        db.session.commit()
+        return run.to_dict()
+    return None

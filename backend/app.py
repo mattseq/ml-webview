@@ -158,12 +158,46 @@ def list_runs():
     runs = db.list_runs()
     return jsonify({'success': True, 'runs': runs})
 
+@app.route('/api/runs', methods=['DELETE'])
+def delete_all_runs():
+    # if not check_auth():
+    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    runs = db.delete_all_runs()
+    return jsonify({'success': True, 'runs': runs})
+
 @app.route('/api/runs/<run_id>', methods=['GET'])
 def get_run(run_id):
     if not check_auth():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
     run = db.get_run(run_id)
+    if run:
+        return jsonify({'success': True, 'run': run})
+    else:
+        return jsonify({'success': False, 'message': 'Run not found'}), 404
+
+@app.route('/api/runs/<run_id>', methods=['DELETE'])
+def delete_run(run_id):
+    # if not check_auth():
+    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    run = db.delete_run(run_id)
+    if run:
+        return jsonify({'success': True, 'run': run})
+    else:
+        return jsonify({'success': False, 'message': 'Run not found'}), 404
+
+@app.route('/api/runs/<run_id>', methods=['PUT'])
+def edit_run(run_id):
+    # if not check_auth():
+    #     return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    data = request.json
+    title = data.get('title', None)
+    description = data.get('description', None)
+
+    run = db.edit_run(run_id, title, description)
     if run:
         return jsonify({'success': True, 'run': run})
     else:

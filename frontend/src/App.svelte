@@ -6,8 +6,9 @@
   import { showToast } from './lib/toast.js';
   import Toasts from './lib/Toasts.svelte';
   
-  let chart;
-  let canvasBind;
+  let charts = [];
+  let canvasContainers = [];
+  let metrics = [];
   let socket;
 
   let trainingInProgress = false;
@@ -39,20 +40,15 @@
     initialize();
 
     return () => {
-      if (chart) {
-        chart.destroy();
-      }
-      if (socket) {
-        socket.disconnect();
-      }
+      destroyCharts();
+      disconnectSocket();
     };
   });
 
   $: {
     if (loggedIn && currentRunId === null) {
       initSocketAndChart();
-    }
-    if (loggedIn && currentRunId != null) {
+    } else if (loggedIn && currentRunId != null) {
       initChartForRunId(currentRunId);
     }
   }
@@ -65,6 +61,18 @@
       socket.disconnect();
       socket = null;
     }
+  }
+
+  function destroyCharts() {
+    if (charts) {
+      charts.forEach(
+        (chart) => {
+          if (chart) chart.destroy();
+        }
+      )
+      charts = [];
+    }
+    canvasContainers = [];
   }
 
   async function initialize() {
@@ -83,29 +91,9 @@
   }
 
   function initSocketAndChart() {
-    if (!canvasBind) return;
     
-    if (chart) chart.destroy();
+    destroyCharts();
     disconnectSocket();
-    
-    const ctx = canvasBind.getContext('2d');
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: 'red', fill: false }] },
-      options: {
-          responsive: true,
-          scales: {
-              x: {
-                  title: { display: true, text: 'Epoch' },
-                  beginAtZero: true
-              },
-              y: {
-                  title: { display: true, text: 'Loss' },
-                  beginAtZero: true
-              }
-          }
-      }
-    });
 
     socket = io(window.location.origin);
 
@@ -122,30 +110,75 @@
     })
 
     socket.on('history', (history) => {
-      console.log("History received:", history);
-
-      history.forEach(data => {
-          chart.data.labels.push(data.epoch);
-          chart.data.datasets[0].data.push(data.loss);
-      });
-
-      chart.update();
+      (async () => {
+        try {
+          console.log("History received:", history);
+          const metricArr = extractMetrics(history);
+          await setupCharts(metricArr);
+          updateChartsWithHistory(history);
+        } catch (err) {
+          console.error("Failed to process history:", err);
+        }
+      })();
     });
 
     socket.on('update', data => {
-        console.log("Update received:", data);
-        chart.data.labels.push(data.epoch);
-        chart.data.datasets[0].data.push(data.loss);
-        chart.update();
+      console.log("Update received:", data);
+      updateChartsOnce(data);
     });
-    
+  }
+
+  async function setupCharts(metricArr) {
+    destroyCharts();
+
+    metrics = metricArr
+
+    canvasContainers = metrics.map(() => null);
+
+    await tick();
+
+    charts = metrics.map((metric, i) => {
+      const ctx = canvasContainers[i].getContext("2d");
+      return new Chart(ctx, {
+        type: "line",
+        data: { labels: [], datasets: [{ label: metric, data: [], borderColor: 'red', fill: false}] },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+                title: { display: true, text: 'Epoch' },
+                beginAtZero: true
+            },
+            y: {
+                title: { display: true, text: metric },
+                beginAtZero: true
+            }
+          }
+        }
+      });
+    });
+  }
+
+  function updateChartsOnce(data) {
+    charts.forEach((chart, i) => {
+      chart.data.labels.push(data.epoch);
+      chart.data.datasets[0].data.push(data[metrics[i]]);
+      chart.update();
+    });
+  }
+
+  function updateChartsWithHistory(history) {
+    charts.forEach((chart, i) => {
+      chart.data.labels = history.map(p => p.epoch);
+      chart.data.datasets[0].data = history.map(p => p[metrics[i]]);
+      chart.update();
+    });
   }
 
   async function initChartForRunId(runId) {
-    if (!canvasBind) return;
     if (!runId) return;
 
-    if (chart) chart.destroy();
+    destroyCharts();
     disconnectSocket();
 
     stopTimer();
@@ -160,31 +193,12 @@
       }
     );
 
-    const ctx = canvasBind.getContext('2d');
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'Loss', data: [], borderColor: 'red', fill: false }] },
-      options: {
-          responsive: true,
-          scales: {
-              x: {
-                  title: { display: true, text: 'Epoch' },
-                  beginAtZero: true
-              },
-              y: {
-                  title: { display: true, text: 'Loss' },
-                  beginAtZero: true
-              }
-          }
-      }
-    });
+    const history = runData.training_history
 
-    runData.training_history.forEach(data => {
-        chart.data.labels.push(data.epoch);
-        chart.data.datasets[0].data.push(data.loss);
-    });
-
-    chart.update();
+    await tick();
+    
+    await setupCharts(extractMetrics(history));
+    updateChartsWithHistory(history);
   }
 
   async function login() {
@@ -210,6 +224,19 @@
     }
   }
 
+  function extractMetrics(training_history) {
+    if (!training_history || training_history.length === 0) return [];
+
+    // use epoch as main key (x value)
+    const keys = Object.keys(training_history[0]).filter(
+      key => key !== "epoch"
+    );
+    
+    // return array of keys
+    return keys;
+  }
+
+
   async function startTraining() {
     const response = await fetch('/api/start', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
@@ -218,9 +245,7 @@
     }
 
     // clear existing chart data
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.update();
+    destroyCharts();
 
     showToast("Training started!", "info");
   }
@@ -235,30 +260,47 @@
   }
 
   function downloadChart() {
-    if (!chart) return;
-    const link = document.createElement('a');
-    link.href = chart.toBase64Image();
-    link.download = `experiment_${Date.now()}.png`;
-    link.click();
+    if (!charts) return;
+    // loop through all charts
+    charts.forEach((chart, i) => {
+      const link = document.createElement('a');
+      link.href = chart.toBase64Image();
+      link.download = `experiment_${Date.now()}_${metrics[i]}.png`;
+      link.click();
+    });
   }
 
   function downloadCSV() {
-    if (!chart) return;
+    if (!charts || charts.length === 0) return;
 
-    const rows = [["Epoch", "Loss"]];
-    chart.data.labels.forEach((label, i) => {
-      rows.push([label, chart.data.datasets[0].data[i]]);
-    });
+    // Build header row: Epoch + all metrics
+    const header = ["Epoch", ...metrics];
 
-    const csvContent = "data:text/csv;charset=utf-8,"
-      + rows.map(e => e.join(",")).join("\n");
+    // Determine number of epochs (assume all charts have same labels)
+    const numRows = charts[0].data.labels.length;
 
+    // Build CSV rows
+    const rows = [];
+    for (let i = 0; i < numRows; i++) {
+      const row = [charts[0].data.labels[i]]; // Epoch
+      charts.forEach((chart) => {
+        row.push(chart.data.datasets[0].data[i]);
+      });
+      rows.push(row);
+    }
+
+    // Combine header + rows
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [header, ...rows].map(r => r.join(",")).join("\n");
+
+    // Trigger download
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.href = encodedUri;
     link.download = `experiment_${Date.now()}.csv`;
     link.click();
   }
+
 
   function updateTrainingDuration() {
     if (!startTime) return;
@@ -332,7 +374,9 @@
       {#if trainingInProgress && currentRunId == null}
         <p class="training-duration">{elapsedTime}</p>
       {/if}
-      <canvas bind:this={canvasBind}></canvas>
+      {#each canvasContainers as container, i}
+        <canvas bind:this={canvasContainers[i]}></canvas>
+      {/each}
     </div>
     <div class="controls">
       {#if trainingInProgress && currentRunId == null}

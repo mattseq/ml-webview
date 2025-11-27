@@ -54,7 +54,8 @@ Use the provided SocketCallback helper — do not emit Socket.IO events directly
 3. Modify `requirements.txt` for the modules you used.
 
 ### Modifying Graphed Data
-The current data that `callback.update(...)` sends includes only `epoch` and `loss`, which the frontend uses for graphing. When modifying the data shown by the graph, you will need to make sure the callback sends the data and the frontend can interpret it and update the graph accordingly. This requires you to modify both your training loop and `./frontend/src/App.svelte`
-
-### Using Multiple Graphs
-There is little to no support for this yet, but you can modify `App.svelte` to do so.
+Your `callback.update(...)` call defines the data that will be displayed on the graphs. The frontend is adaptive and can automatically graph multiple metrics. Here's an example of a simple callback update: 
+```
+callback.update({'epoch': epoch, 'loss': epoch_loss, 'random': np.random.rand()})
+```
+Epoch is always used as the key value while all other values are used as metrics and given their own separate graph. This particular update will display two separate graphs for both `loss` and `random`. Another benefit of this adaptability is that, should you decide to change the metrics you display, your previously saved training runs will not be affected and you can still view them.

@@ -63,7 +63,7 @@ def train_model(callback=None):
 
         # update callback for socket in app.py
         if callback:
-            callback.update({'epoch': epoch, 'loss': epoch_loss})
+            callback.update({'epoch': epoch, 'loss': epoch_loss, 'random': np.random.rand()})
 
     if callback:
         callback.finished()

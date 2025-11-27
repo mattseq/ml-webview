@@ -421,6 +421,12 @@
       {#if trainingInProgress && currentRunId == null}
         <p class="training-duration">{elapsedTime}</p>
       {/if}
+      {#if !trainingInProgress && charts.length === 0}
+        <p style="color: white; padding: 0.5em;">No data to display. Start training or view past runs to see metrics.</p>
+      {/if}
+      {#if trainingInProgress && charts.length === 0}
+        <p style="color: white; padding: 2em;">Training Started...</p>
+      {/if}
       {#each canvasContainers as container, i}
         <canvas bind:this={canvasContainers[i]}></canvas>
       {/each}

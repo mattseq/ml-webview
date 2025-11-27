@@ -106,7 +106,7 @@ def stop_training():
 @app.route('/api/status', methods=['GET'])
 def status():
     if not check_auth():
-        return jsonify({'loggedIn': False, 'message': 'Unauthorized'}), 401
+        return jsonify({'loggedIn': False, 'message': 'Unauthorized'})
     return jsonify({'loggedIn': True})
 
 @app.route('/api/login', methods=['POST'])

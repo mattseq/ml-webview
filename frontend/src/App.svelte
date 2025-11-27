@@ -5,6 +5,12 @@
   import { Play, Square, ImageDown, FileDown, HardDriveDownload, Radio } from 'lucide-svelte';
   import { showToast } from './lib/toast.js';
   import Toasts from './lib/Toasts.svelte';
+
+  
+  //////////// State Variables ////////////
+
+  // user defined metric for x-axis
+  let keyMetric = 'epoch';
   
   let charts = [];
   let canvasContainers = [];
@@ -29,13 +35,10 @@
 
   let currentRunId = null;
 
-  function openSaveModal() {
-    showSaveModal = true;
-  }
-  function closeSaveModal() {
-    showSaveModal = false;
-  }
 
+  //////////// Lifecycle ////////////
+
+  // initialize on mount
   onMount(() => {
     initialize();
 
@@ -45,6 +48,7 @@
     };
   });
 
+  // reactive block to handle switching charts
   $: {
     if (loggedIn && currentRunId === null) {
       initSocketAndChart();
@@ -53,6 +57,18 @@
     }
   }
 
+
+  //////////// Helper Functions ////////////
+
+  // save modal handlers
+  function openSaveModal() {
+    showSaveModal = true;
+  }
+  function closeSaveModal() {
+    showSaveModal = false;
+  }
+
+  // helper to disconnect socket
   function disconnectSocket() {
     if (socket) {
       socket.off('status');
@@ -63,6 +79,7 @@
     }
   }
 
+  // helper to destroy charts
   function destroyCharts() {
     if (charts) {
       charts.forEach(
@@ -75,6 +92,22 @@
     canvasContainers = [];
   }
 
+  // extract metric keys from training history
+  function extractMetrics(training_history) {
+    if (!training_history || training_history.length === 0) return [];
+
+    // use epoch as main key (x value)
+    const keys = Object.keys(training_history[0]).filter(
+      key => key !== keyMetric
+    );
+    
+    // return array of keys
+    return keys;
+  }
+
+  ////////////  Initialization Functions //////////
+
+  // main initialization function
   async function initialize() {
     try {
       const res = await fetch('/api/status', { method: "GET", credentials: 'include' });
@@ -82,6 +115,7 @@
       loggedIn = data.loggedIn;
       if (loggedIn) {
         await tick();
+        // init socket chart first and fetch runs
         initSocketAndChart();
         fetchRuns();
       }
@@ -95,8 +129,10 @@
     destroyCharts();
     disconnectSocket();
 
+    // connect socket
     socket = io(window.location.origin);
 
+    // status listener for training state
     socket.on('status', (status) => {
       console.log("Status received:", status);
       trainingInProgress = status.training
@@ -109,6 +145,7 @@
       }
     })
 
+    // history listener for initial data
     socket.on('history', (history) => {
       (async () => {
         try {
@@ -122,12 +159,46 @@
       })();
     });
 
+    // update listener for new data points
     socket.on('update', data => {
       console.log("Update received:", data);
       updateChartsOnce(data);
     });
   }
 
+  // initialize chart for a specific run ID instead of socket
+  async function initChartForRunId(runId) {
+    if (!runId) return;
+
+    destroyCharts();
+    disconnectSocket();
+
+    stopTimer();
+    
+    // fetch training history for run ID
+    const runData = await fetch(`/api/runs/${runId}`, { method: "GET", credentials: 'include' })
+      .then(res => res.json())
+      .then(json => json.run)
+      .catch(err => {
+        console.error("Failed to fetch run:", err);
+        showToast("Failed to load run", "error");
+        return;
+      }
+    );
+
+    const history = runData.training_history
+
+    await tick();
+    
+    // setup and update charts
+    await setupCharts(extractMetrics(history));
+    updateChartsWithHistory(history);
+  }
+
+
+  ///////////// Chart Functions ////////////
+  
+  // setup charts based on metrics
   async function setupCharts(metricArr) {
     destroyCharts();
 
@@ -146,7 +217,7 @@
           responsive: true,
           scales: {
             x: {
-                title: { display: true, text: 'Epoch' },
+                title: { display: true, text: keyMetric || 'Epoch' },
                 beginAtZero: true
             },
             y: {
@@ -159,47 +230,34 @@
     });
   }
 
+  // update charts with a single new data point
   function updateChartsOnce(data) {
+    if (charts.length === 0) {
+      setupCharts(extractMetrics([data]));
+    }
+
     charts.forEach((chart, i) => {
-      chart.data.labels.push(data.epoch);
+      chart.data.labels.push(data[keyMetric]);
       chart.data.datasets[0].data.push(data[metrics[i]]);
       chart.update();
     });
   }
 
+  // update charts with full history
   function updateChartsWithHistory(history) {
+    if (charts.length === 0) {
+      setupCharts(extractMetrics(history));
+    }
+    
     charts.forEach((chart, i) => {
-      chart.data.labels = history.map(p => p.epoch);
+      chart.data.labels = history.map(p => p[keyMetric]);
       chart.data.datasets[0].data = history.map(p => p[metrics[i]]);
       chart.update();
     });
   }
 
-  async function initChartForRunId(runId) {
-    if (!runId) return;
 
-    destroyCharts();
-    disconnectSocket();
-
-    stopTimer();
-    
-    const runData = await fetch(`/api/runs/${runId}`, { method: "GET", credentials: 'include' })
-      .then(res => res.json())
-      .then(json => json.run)
-      .catch(err => {
-        console.error("Failed to fetch run:", err);
-        showToast("Failed to load run", "error");
-        return;
-      }
-    );
-
-    const history = runData.training_history
-
-    await tick();
-    
-    await setupCharts(extractMetrics(history));
-    updateChartsWithHistory(history);
-  }
+  //////////// User Action Functions ////////////
 
   async function login() {
     try {
@@ -224,28 +282,12 @@
     }
   }
 
-  function extractMetrics(training_history) {
-    if (!training_history || training_history.length === 0) return [];
-
-    // use epoch as main key (x value)
-    const keys = Object.keys(training_history[0]).filter(
-      key => key !== "epoch"
-    );
-    
-    // return array of keys
-    return keys;
-  }
-
-
   async function startTraining() {
     const response = await fetch('/api/start', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
       showToast("Failed to start training!", "error");
       return;
     }
-
-    // clear existing chart data
-    destroyCharts();
 
     showToast("Training started!", "info");
   }
@@ -259,72 +301,7 @@
     showToast("Training stopped!", "info");
   }
 
-  function downloadChart() {
-    if (!charts) return;
-    // loop through all charts
-    charts.forEach((chart, i) => {
-      const link = document.createElement('a');
-      link.href = chart.toBase64Image();
-      link.download = `experiment_${Date.now()}_${metrics[i]}.png`;
-      link.click();
-    });
-  }
-
-  function downloadCSV() {
-    if (!charts || charts.length === 0) return;
-
-    // Build header row: Epoch + all metrics
-    const header = ["Epoch", ...metrics];
-
-    // Determine number of epochs (assume all charts have same labels)
-    const numRows = charts[0].data.labels.length;
-
-    // Build CSV rows
-    const rows = [];
-    for (let i = 0; i < numRows; i++) {
-      const row = [charts[0].data.labels[i]]; // Epoch
-      charts.forEach((chart) => {
-        row.push(chart.data.datasets[0].data[i]);
-      });
-      rows.push(row);
-    }
-
-    // Combine header + rows
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [header, ...rows].map(r => r.join(",")).join("\n");
-
-    // Trigger download
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.href = encodedUri;
-    link.download = `experiment_${Date.now()}.csv`;
-    link.click();
-  }
-
-
-  function updateTrainingDuration() {
-    if (!startTime) return;
-
-    const diff = Date.now() - startTime;
-    const hours = String(Math.floor(diff / 3600000)).padStart(2, "0");
-    const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
-    const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-
-    elapsedTime = `${hours}:${minutes}:${seconds}`;
-  }
-
-  function startTimer() {
-    if (timerInterval) return;
-    timerInterval = setInterval(updateTrainingDuration, 1000);
-  }
-
-  function stopTimer() {
-    clearInterval(timerInterval);
-    timerInterval = null;
-    startTime = null;
-    elapsedTime = "00:00:00";
-  }
-
+  // fetch previous runs from backend at the start
   async function fetchRuns() {
     try {
       const res = await fetch('/api/runs', { method: "GET", credentials: 'include' });
@@ -355,6 +332,74 @@
       console.error("Error saving run:", error);
       showToast("Error saving run!", "error");
     }
+  }
+  
+  function downloadChart() {
+    if (!charts) return;
+    // loop through all charts
+    charts.forEach((chart, i) => {
+      const link = document.createElement('a');
+      link.href = chart.toBase64Image();
+      link.download = `experiment_${Date.now()}_${metrics[i]}.png`;
+      link.click();
+    });
+  }
+
+  function downloadCSV() {
+    if (!charts || charts.length === 0) return;
+
+    // Build header row: Epoch + all metrics
+    const header = [keyMetric, ...metrics];
+
+    // Determine number of epochs (assume all charts have same labels)
+    const numRows = charts[0].data.labels.length;
+
+    // Build CSV rows
+    const rows = [];
+    for (let i = 0; i < numRows; i++) {
+      const row = [charts[0].data.labels[i]];
+      charts.forEach((chart) => {
+        row.push(chart.data.datasets[0].data[i]);
+      });
+      rows.push(row);
+    }
+
+    // Combine header + rows
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [header, ...rows].map(r => r.join(",")).join("\n");
+
+    // Trigger download
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.href = encodedUri;
+    link.download = `experiment_${Date.now()}.csv`;
+    link.click();
+  }
+  
+
+  //////////// Timer Functions ////////////
+
+  function updateTrainingDuration() {
+    if (!startTime) return;
+
+    const diff = Date.now() - startTime;
+    const hours = String(Math.floor(diff / 3600000)).padStart(2, "0");
+    const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+    const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+
+    elapsedTime = `${hours}:${minutes}:${seconds}`;
+  }
+
+  function startTimer() {
+    if (timerInterval) return;
+    timerInterval = setInterval(updateTrainingDuration, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    startTime = null;
+    elapsedTime = "00:00:00";
   }
 
 </script>

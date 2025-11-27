@@ -161,8 +161,14 @@
 
     // update listener for new data points
     socket.on('update', data => {
-      console.log("Update received:", data);
-      updateChartsOnce(data);
+      (async () => {
+        try {
+          console.log("Update received (async):", data);
+          await updateChartsOnce(data);
+        } catch (err) {
+          console.error("Failed to process update:", err);
+        }
+      })();
     });
   }
 
@@ -231,9 +237,10 @@
   }
 
   // update charts with a single new data point
-  function updateChartsOnce(data) {
+  async function updateChartsOnce(data) {
+    // if no charts, setup charts
     if (charts.length === 0) {
-      setupCharts(extractMetrics([data]));
+      await setupCharts(extractMetrics([data]));
     }
 
     charts.forEach((chart, i) => {
@@ -245,9 +252,6 @@
 
   // update charts with full history
   function updateChartsWithHistory(history) {
-    if (charts.length === 0) {
-      setupCharts(extractMetrics(history));
-    }
     
     charts.forEach((chart, i) => {
       chart.data.labels = history.map(p => p[keyMetric]);

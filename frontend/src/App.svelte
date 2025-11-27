@@ -289,6 +289,8 @@
       return;
     }
 
+    destroyCharts();
+
     showToast("Training started!", "info");
   }
   async function stopTraining() {

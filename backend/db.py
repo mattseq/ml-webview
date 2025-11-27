@@ -15,7 +15,15 @@ class Run(db.Model):
     end_time = db.Column(db.BigInteger, nullable=True)
     training_history = db.Column(db.PickleType, nullable=False)
 
-    def to_dict(self):
+    def to_dict(self, summary=False):
+        if summary:
+            return {
+                'id': self.id,
+                'title': self.title,
+                'description': self.description,
+                'start_time': self.start_time,
+                'end_time': self.end_time,
+            }
         return {
             'id': self.id,
             'title': self.title,
@@ -52,7 +60,7 @@ def get_run(run_id):
 
 def list_runs():
     rows = Run.query.order_by(Run.start_time.desc()).all()
-    return [row.to_dict() for row in rows]
+    return [row.to_dict(summary=True) for row in rows]
 
 def delete_run(run_id):
     run = Run.query.get(run_id)

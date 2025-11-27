@@ -53,8 +53,7 @@
       initSocketAndChart();
     }
     if (loggedIn && currentRunId != null) {
-      const currentRunData = previousRuns.find(run => run.id == currentRunId);
-      initChartForData(currentRunData);
+      initChartForRunId(currentRunId);
     }
   }
 
@@ -75,6 +74,7 @@
       loggedIn = data.loggedIn;
       if (loggedIn) {
         await tick();
+        initSocketAndChart();
         fetchRuns();
       }
     } catch (error) {
@@ -141,14 +141,24 @@
     
   }
 
-  function initChartForData(runData) {
+  async function initChartForRunId(runId) {
     if (!canvasBind) return;
-    if (!runData) return;
+    if (!runId) return;
 
     if (chart) chart.destroy();
     disconnectSocket();
 
     stopTimer();
+    
+    const runData = await fetch(`/api/runs/${runId}`, { method: "GET", credentials: 'include' })
+      .then(res => res.json())
+      .then(json => json.run)
+      .catch(err => {
+        console.error("Failed to fetch run:", err);
+        showToast("Failed to load run", "error");
+        return;
+      }
+    );
 
     const ctx = canvasBind.getContext('2d');
     chart = new Chart(ctx, {

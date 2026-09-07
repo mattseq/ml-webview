@@ -276,6 +276,7 @@
       if (response.ok && data.success) {
         loggedIn = true;
         showToast("Login successful!", "success");
+        await fetchRuns();
       } else {
         loggedIn = false;
         showToast("Login failed!", "error");
